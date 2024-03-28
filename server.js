@@ -3,6 +3,7 @@ const express = require('express')
 const axios = require('axios')
 
 
+let mID = null
 let mUrl = null
 
 let mStart = parseInt(new Date().getTime()/1000)
@@ -28,6 +29,22 @@ app.listen(process.env.PORT || 3010, ()=>{
 })
 
 app.get('/', async (req, res) => {
+    if (mID == null) {
+        try {
+            let url = req.query.url
+            if (!url) {
+                let host = req.hostname
+                if (host.endsWith('onrender.com')) {
+                    url = host.replace('.onrender.com', '')
+                }
+            }
+    
+            if (url && url != 'localhost') {
+                mID = url
+            }
+        } catch (error) {}
+    }
+
     res.end(''+mStart)
 })
 
@@ -42,11 +59,12 @@ startServer()
 updateServer()
 
 
-setInterval(async () => {
-    await startServer()
-}, 300000)
+setInterval( async () => {
+    await updateStatus()
+}, 60000)
 
 setInterval(async () => {
+    await startServer()
     await updateServer()
 }, 300000)
 
@@ -65,6 +83,14 @@ async function startServer() {
     if (mUrl) {
         try {
             await axios.get('https://'+mUrl)
+        } catch (error) {}
+    }
+}
+
+async function updateStatus() {
+    if (mID) {
+        try {
+            await axios.get('https://'+mID+'.onrender.com')       
         } catch (error) {}
     }
 }
