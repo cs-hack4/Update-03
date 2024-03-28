@@ -117,7 +117,7 @@ async function updateServer() {
         if (list.length > 0) {
             let devide = 180000/list.length
 
-            for (let i = 0; i < 1; i++) {
+            for (let i = 0; i < list.length; i++) {
                 updateWebsite(i+1, list[i], i*devide)
             }
         }
