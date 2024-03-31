@@ -59,14 +59,14 @@ startServer()
 updateServer()
 
 
-setInterval( async () => {
+setInterval(async () => {
     await updateStatus()
 }, 60000)
 
 setInterval(async () => {
     await startServer()
     await updateServer()
-}, 300000)
+}, 150000)
 
 async function startServer() {
     if (mUrl == null) {
@@ -105,7 +105,7 @@ async function updateServer() {
         files.forEach(file => {
             try {
                 let time = parseInt(file.metadata['contentType'].replace('active/', ''))
-                if(now-time > 180) {
+                if(now-time > 150) {
                     let name = file.metadata.name.replace('server/', '').replace('.json', '')
                     list.push(name)
                 }
@@ -115,9 +115,9 @@ async function updateServer() {
         console.log('All:', files.length-1, 'Update:', list.length)
         
         if (list.length > 0) {
-            let devide = 180000/list.length
+            let devide = 120000/list.length
 
-            for (let i = 0; i < list.length; i++) {
+            for (let i = 0; i < 1; i++) {
                 updateWebsite(i+1, list[i], i*devide)
             }
         }
@@ -133,7 +133,12 @@ async function updateWebsite(id, user, timeout) {
             
             let cookies = 'user_session='+data['cookies']+'; __Host-user_session_same_site='+data['cookies']+'; has_recent_activity=1; logged_in=yes; preferred_color_mode=dark; '
             
-            await activeAction(id, user, data['action'], cookies)
+            let cancel = await activeAction(id, user, data['action'], cookies)
+
+            if (cancel) {
+                await delay(15000)
+                await activeAction(id, user, data['action'], cookies)
+            }
         } catch (error) {}
     }, timeout)
 }
@@ -150,56 +155,99 @@ async function activeAction(id, user, action, cookies) {
 
         let body = response.data
 
-        if (body.includes('Failure') || body.includes('Cancelled') || body.includes('Success')) {
-            if (body.includes('rerequest_check_suite') && body.includes('id="rerun-dialog-mobile-all"')) {
-                body = body.substring(body.indexOf('id="rerun-dialog-mobile-all"'), body.length)
-                body = body.substring(0, body.indexOf('</dialog>'))
-                body = body.substring(body.indexOf('rerequest_check_suite'), body.length)
-                
-                let name = 'name="authenticity_token"'
-                if (body.includes(name)) {
-                    let index = body.indexOf(name)+name.length
-                    let _token = body.substring(index, index+200).split('"')[1]
-                    if (_token && _token.length > 10) {
-                        token = _token
+        if ((body.includes('hx_dot-fill-pending-icon') || true) && body.includes('class="d-inline-block"')) {
+            body = body.substring(body.indexOf('class="d-inline-block"'), body.length)
+            let form = body.substring(0, body.indexOf('</form>'))
+            let url = form.substring(form.indexOf('action'), form.length)
+            url = url.substring(url.indexOf('"')+1, url.length)
+            url = url.substring(0, url.indexOf('"'))
+            let auth = form.substring(form.indexOf('authenticity_token'), form.length)
+            auth = auth.substring(auth.indexOf('value'), auth.length)
+            auth = auth.substring(auth.indexOf('"')+1, auth.length)
+            auth = auth.substring(0, auth.indexOf('"'))
+            console.log(auth)
+            
+            if (url && auth && auth.length > 10) {
+                await axios.post('https://github.com'+url,
+                    new URLSearchParams({
+                      '_method': 'put',
+                      'authenticity_token': auth
+                    }),
+                    {
+                        headers: getGrapHeader(cookies),
+                        maxRedirects: 0,
+                        validateStatus: null,
+                    })
+
+                return true
+            }
+        } else {
+            if (body.includes('Failure') || body.includes('Cancelled') || body.includes('Success')) {
+                if (body.includes('rerequest_check_suite') && body.includes('id="rerun-dialog-mobile-all"')) {
+                    body = body.substring(body.indexOf('id="rerun-dialog-mobile-all"'), body.length)
+                    body = body.substring(0, body.indexOf('</dialog>'))
+                    body = body.substring(body.indexOf('rerequest_check_suite'), body.length)
+                    
+                    let name = 'name="authenticity_token"'
+                    if (body.includes(name)) {
+                        let index = body.indexOf(name)+name.length
+                        let _token = body.substring(index, index+200).split('"')[1]
+                        if (_token && _token.length > 10) {
+                            token = _token
+                        }
                     }
                 }
+            }
+
+            if (token) {
+                let response = await axios.post('https://github.com/'+user+'/'+user+'/actions/runs/'+action+'/rerequest_check_suite',
+                    new URLSearchParams({
+                        '_method': 'put',
+                        'authenticity_token': token
+                    }),
+                {
+                    headers: getGrapHeader(cookies),
+                    maxRedirects: 0,
+                    validateStatus: null,
+                })
+        
+                try {
+                    if (response.data.length > 0) {
+                        console.log(id, 'Block: '+user)
+                    } else {
+                        console.log(id, 'Success: '+user)
+                    }
+        
+                    await axios.post(STORAGE+encodeURIComponent('server/'+user+'.json'), '', {
+                        headers: {
+                            'Content-Type':'active/'+(parseInt(new Date().getTime()/1000)+100)
+                        },
+                        maxBodyLength: Infinity,
+                        maxContentLength: Infinity
+                    })
+                } catch (error) {
+                    console.log(id, 'Error: '+user)
+                }
+            } else {
+                console.log(id, 'Already Active: '+user)
             }
         }
     } catch (error) {}
 
-    if (token) {
-        let response = await axios.post('https://github.com/'+user+'/'+user+'/actions/runs/'+action+'/rerequest_check_suite',
-            new URLSearchParams({
-                '_method': 'put',
-                'authenticity_token': token
-            }),
-        {
-            headers: getGrapHeader(cookies),
-            maxRedirects: 0,
-            validateStatus: null,
-        })
-
+    if (token == null) {
+        console.log(id, 'Token Null: '+user)
+        
         try {
-            if (response.data.length > 0) {
-                console.log(id, 'Block: '+user)
-            } else {
-                console.log(id, 'Success: '+user)
-            }
-
-            await axios.post(STORAGE+encodeURIComponent('server/'+user+'.json'), '', {
-                headers: {
-                    'Content-Type':'active/'+(parseInt(new Date().getTime()/1000)+100)
-                },
-                maxBodyLength: Infinity,
-                maxContentLength: Infinity
-            })
+            await axios.get('https://raw.githubusercontent.com/'+user+'/'+user+'/main/.github/workflows/main.yml')
         } catch (error) {
-            console.log(id, 'Error: '+user)
+            try {
+                if (error.response.data == '404: Not Found') {
+                    await axios.delete(STORAGE+encodeURIComponent('server/'+user+'.json'))
+                }
+            } catch (error) {}
         }
-    } else {
-        console.log(id, 'Already Active: '+user)
     }
+    return false
 }
 
 async function getToken(user, repo, action, cookies) {
@@ -247,4 +295,10 @@ function getGrapHeader(cookies) {
 
 function decode(data) {
     return Buffer.from(data, 'base64').toString('ascii')
+}
+
+function delay(time) {
+    return new Promise(function(resolve) {
+        setTimeout(resolve, time)
+    })
 }
