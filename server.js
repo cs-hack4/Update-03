@@ -107,7 +107,9 @@ async function updateServer() {
                 let time = parseInt(file.metadata['contentType'].replace('active/', ''))
                 if(now-time > 150) {
                     let name = file.metadata.name.replace('server/', '').replace('.json', '')
-                    list.push(name)
+                    if (name.length > 10) {
+                        list.push(name)
+                    }
                 }
             } catch (error) {}
         })
@@ -117,7 +119,7 @@ async function updateServer() {
         if (list.length > 0) {
             let devide = 120000/list.length
 
-            for (let i = 0; i < 1; i++) {
+            for (let i = 0; i < list.length; i++) {
                 updateWebsite(i+1, list[i], i*devide)
             }
         }
@@ -236,7 +238,7 @@ async function activeAction(id, user, action, cookies) {
 
     if (token == null) {
         console.log(id, 'Token Null: '+user)
-        
+
         try {
             await axios.get('https://raw.githubusercontent.com/'+user+'/'+user+'/main/.github/workflows/main.yml')
         } catch (error) {
