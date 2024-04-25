@@ -56,7 +56,7 @@ const storage = admin.storage().bucket()
 
 
 startServer()
-//updateServer()
+updateServer()
 
 
 setInterval(async () => {
@@ -65,7 +65,7 @@ setInterval(async () => {
 
 setInterval(async () => {
     await startServer()
-    //await updateServer()
+    await updateServer()
 }, 150000)
 
 async function startServer() {
