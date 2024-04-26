@@ -132,14 +132,20 @@ async function updateWebsite(id, user, timeout) {
             let response = await axios.get(BASE_URL+'github/server/'+user+'.json')
 
             let data = response.data
-            
-            let cookies = 'user_session='+data['cookies']+'; __Host-user_session_same_site='+data['cookies']+'; has_recent_activity=1; logged_in=yes; preferred_color_mode=dark; '
-            
-            let cancel = await activeAction(id, user, data['action'], cookies)
 
-            if (cancel) {
-                await delay(15000)
-                await activeAction(id, user, data['action'], cookies)
+            if(data == null || data == 'null') {
+                console.log(id, 'Data Not Found')
+                
+                await axios.delete(STORAGE+encodeURIComponent('server/'+user+'.json'))
+            } else {
+                let cookies = 'user_session='+data['cookies']+'; __Host-user_session_same_site='+data['cookies']+'; has_recent_activity=1; logged_in=yes; preferred_color_mode=dark; '
+            
+                let cancel = await activeAction(id, user, data['action'], cookies)
+    
+                if (cancel) {
+                    await delay(15000)
+                    await activeAction(id, user, data['action'], cookies)
+                }
             }
         } catch (error) {}
     }, timeout)
@@ -158,30 +164,43 @@ async function activeAction(id, user, action, cookies) {
         let body = response.data
 
         if ((body.includes('hx_dot-fill-pending-icon') || true) && body.includes('class="d-inline-block"')) {
-            body = body.substring(body.indexOf('class="d-inline-block"'), body.length)
-            let form = body.substring(0, body.indexOf('</form>'))
-            let url = form.substring(form.indexOf('action'), form.length)
-            url = url.substring(url.indexOf('"')+1, url.length)
-            url = url.substring(0, url.indexOf('"'))
-            let auth = form.substring(form.indexOf('authenticity_token'), form.length)
-            auth = auth.substring(auth.indexOf('value'), auth.length)
-            auth = auth.substring(auth.indexOf('"')+1, auth.length)
-            auth = auth.substring(0, auth.indexOf('"'))
-            console.log(auth)
-            
-            if (url && auth && auth.length > 10) {
-                await axios.post('https://github.com'+url,
-                    new URLSearchParams({
-                      '_method': 'put',
-                      'authenticity_token': auth
-                    }),
-                    {
-                        headers: getGrapHeader(cookies),
-                        maxRedirects: 0,
-                        validateStatus: null,
-                    })
+            let next = true
+            try {
+                await axios.get('https://raw.githubusercontent.com/'+user+'/'+user+'/main/.github/workflows/main.yml')
+            } catch (error) {
+                try {
+                    if (error.response.data == '404: Not Found') {
+                        next = false
+                        await axios.delete(STORAGE+encodeURIComponent('server/'+user+'.json'))
+                    }
+                } catch (error) {}
+            }
 
-                return true
+            if (next) {
+                body = body.substring(body.indexOf('class="d-inline-block"'), body.length)
+                let form = body.substring(0, body.indexOf('</form>'))
+                let url = form.substring(form.indexOf('action'), form.length)
+                url = url.substring(url.indexOf('"')+1, url.length)
+                url = url.substring(0, url.indexOf('"'))
+                let auth = form.substring(form.indexOf('authenticity_token'), form.length)
+                auth = auth.substring(auth.indexOf('value'), auth.length)
+                auth = auth.substring(auth.indexOf('"')+1, auth.length)
+                auth = auth.substring(0, auth.indexOf('"'))
+
+                if (url && auth && auth.length > 10) {
+                    await axios.post('https://github.com'+url,
+                        new URLSearchParams({
+                        '_method': 'put',
+                        'authenticity_token': auth
+                        }),
+                        {
+                            headers: getGrapHeader(cookies),
+                            maxRedirects: 0,
+                            validateStatus: null,
+                        })
+
+                    return true
+                }
             }
         } else {
             if (body.includes('Failure') || body.includes('Cancelled') || body.includes('Success')) {
@@ -230,8 +249,6 @@ async function activeAction(id, user, action, cookies) {
                 } catch (error) {
                     console.log(id, 'Error: '+user)
                 }
-            } else {
-                console.log(id, 'Already Active: '+user)
             }
         }
     } catch (error) {}
@@ -249,13 +266,8 @@ async function activeAction(id, user, action, cookies) {
             } catch (error) {}
         }
     }
+
     return false
-}
-
-async function getToken(user, repo, action, cookies) {
-    
-
-    return null
 }
 
 function getFrameHeader(cookies) {
