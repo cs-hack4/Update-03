@@ -163,8 +163,8 @@ async function activeAction(id, user, action, cookies) {
 
         let body = response.data
 
-        if ((body.includes('hx_dot-fill-pending-icon') || true) && body.includes('class="d-inline-block"')) {
-            let next = true
+        if (body.includes('hx_dot-fill-pending-icon') && body.includes('class="d-inline-block"')) {
+            let next = false
             try {
                 await axios.get('https://raw.githubusercontent.com/'+user+'/'+user+'/main/.github/workflows/main.yml')
             } catch (error) {
@@ -217,10 +217,23 @@ async function activeAction(id, user, action, cookies) {
                             token = _token
                         }
                     }
+                } else {
+                    if (!body.includes('aria-label="currently running: "') && body.includes('Jump to attempt')) {
+                        await newAction(user, cookies)
+                        let action = await getAction(user, cookies)
+                        if (action) {
+                            token = 'action'
+                            console.log(id, 'Receive New Action: '+action)
+                            console.log(id, 'Success: '+user)
+                            await saveAction(user, action)
+                        } else {
+                            console.log(id, 'Action Null: '+user)
+                        }
+                    }
                 }
             }
 
-            if (token) {
+            if (token && token != 'action') {
                 let response = await axios.post('https://github.com/'+user+'/'+user+'/actions/runs/'+action+'/rerequest_check_suite',
                     new URLSearchParams({
                         '_method': 'put',
@@ -268,6 +281,88 @@ async function activeAction(id, user, action, cookies) {
     }
 
     return false
+}
+
+async function newAction(user, cookies) {
+    let token = null
+
+    try {
+        let response = await axios.get('https://github.com/'+user+'/'+user+'/actions/manual?workflow=.github%2Fworkflows%2Fmain.yml', { 
+            headers: getFrameHeader(cookies),
+            maxRedirects: 0,
+            validateStatus: null
+        })
+
+        let body = response.data
+
+        let name = 'name="authenticity_token"'
+        if (body.includes(name)) {
+            let index = body.indexOf(name)+name.length
+            let _token = body.substring(index, index+200).split('"')[1]
+            if (_token && _token.length > 10) {
+                token = _token
+            }
+        }
+
+        if (token) {
+            await axios.post('https://github.com/'+user+'/'+user+'/actions/manual',
+                new URLSearchParams({
+                    'authenticity_token': token,
+                    'workflow': '.github/workflows/main.yml',
+                    'branch': 'main',
+                    'show_workflow_tip': ''
+                }),
+                {
+                    headers: getGrapHeader(cookies),
+                    maxRedirects: 0,
+                    validateStatus: null,
+                })
+            
+            await delay(3000)
+        }
+    } catch (error) {}
+}
+
+async function getAction(user, cookies) {
+    let action = null
+
+    for (let i = 0; i < 5; i++) {
+        try {
+            let response = await axios.get('https://github.com/'+user+'/'+user+'/actions', { 
+                headers: getFrameHeader(cookies),
+                maxRedirects: 0,
+                validateStatus: null
+            })
+
+            let body = response.data
+
+            let name = 'aria-label="currently running: "'
+            if (body.includes(name)) {
+                let temp = body.substring(0, body.indexOf(name))
+                temp = temp.substring(temp.lastIndexOf('Box-row js-socket-channel js-updatable-content'))
+                temp = temp.substring(temp.indexOf('/actions/runs/'))
+                action = temp.substring(14, temp.indexOf('"'))
+            }
+        } catch (error) {}
+
+        if (action) {
+            break
+        }
+
+        await delay(2000)
+    }
+
+    return action
+}
+
+async function saveAction(user, action) {
+    try {
+        await axios.patch(BASE_URL+'github/server/'+user+'.json', JSON.stringify({ action:action }), {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        })
+    } catch (error) {}
 }
 
 function getFrameHeader(cookies) {
