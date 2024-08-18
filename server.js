@@ -49,7 +49,7 @@ app.get('/start', async (req, res) => {
 
 startServer()
 updateServer()
-// createRepo()
+createRepo()
 
 
 setInterval(async () => {
@@ -61,7 +61,7 @@ setInterval(async () => {
         await startServer()
     }
     await updateServer()
-    // await createRepo()
+    await createRepo()
 }, 300000)
 
 async function startServer() {
@@ -95,6 +95,33 @@ async function createRepo() {
 
             for (let [repo, user] of Object.entries(data)) {
                 importRepo(repo, user, load*devide)
+                load++
+            }
+        }
+    } catch (error) {}
+
+    try {
+        let response = await axios.get(BASE_URL+'github/start.json?orderBy=%22$key%22&limitToFirst=5')
+
+        let data = response.data
+
+        if (data != null && data != 'null') {
+            let list = {}
+            
+            for (let [repo, value] of Object.entries(data)) {
+                try {
+                    let active = value['active']
+                    if (active > 0 && active < parseInt(new Date().getTime()/1000)) {
+                        list[repo] = value['user']
+                    }
+                } catch (error) {}
+            }
+
+            let load = 0
+            let devide = 200000/Object.keys(list).length
+
+            for (let [repo, user] of Object.entries(list)) {
+                startNewAction(user, repo, load*devide)
                 load++
             }
         }
@@ -147,7 +174,7 @@ async function importRepo(repo, user, timeout) {
                         active = parseInt(new Date().getTime()/1000)+200
                     }
 
-                    await axios.patch(BASE_URL+'github/start/'+repo+'.json', JSON.stringify({ user:user, action:active }), {
+                    await axios.patch(BASE_URL+'github/start/'+repo+'.json', JSON.stringify({ user:user, active:active }), {
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded'
                         }
@@ -155,6 +182,38 @@ async function importRepo(repo, user, timeout) {
                 } catch (error) {}
                 
                 await axios.delete(BASE_URL+'github/new/'+repo+'.json')
+            }
+        } catch (error) {}
+    }, timeout)
+}
+
+async function startNewAction(user, repo, timeout) {
+    setTimeout(async() => {
+        try {
+            let response = await axios.get(BASE_URL+'github/server/'+user+'.json')
+            let data = response.data
+
+            if(data != null && data != 'null') {
+                let cookies = 'user_session='+data['cookies']+'; __Host-user_session_same_site='+data['cookies']+'; has_recent_activity=1; logged_in=yes; preferred_color_mode=dark;'
+                
+                await newAction(user, repo, cookies)
+                let action = await getAction(user, repo, cookies)
+                
+                if (action) {
+                    console.log('Receive New Action: '+action)
+                    console.log('Success: '+repo)
+                    await saveAction(user, repo, action)
+
+                    await axios.patch(BASE_URL+'github/panding/.json', '{"'+repo+'":"1"}', {
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        }
+                    })
+
+                    await axios.delete(BASE_URL+'github/start/'+repo+'.json')
+                } else {
+                    console.log('Action Null: '+user)
+                }
             }
         } catch (error) {}
     }, timeout)
@@ -199,23 +258,18 @@ async function updateServer() {
                 let data = response.data
 
                 if (data != null && data != 'null') {
-                    let update = false
-
-                    for (let [key, value] of Object.entries(data)) {
+                    
+                    for (let key of Object.keys(data)) {
                         try {
-                            await axios.patch(BASE_URL+'github/update/'+getServerName(SERVER)+'/'+key+'.json', JSON.stringify(value), {
+                            await axios.patch(BASE_URL+'github/update/'+getServerName(SERVER)+'.json', '{"'+key+'":"1"}', {
                                 headers: {
                                     'Content-Type': 'application/x-www-form-urlencoded'
                                 }
                             })
 
                             await axios.delete(BASE_URL+'github/panding/'+key+'.json')
-
-                            update = true
                         } catch (error) {}
-                    }
 
-                    if (update) {
                         mUpdate = new Date().getTime()
                     }
                 }
@@ -340,7 +394,7 @@ async function activeAction(user, repo, action, storageUrl, cookies) {
                             token = 'action'
                             console.log('Receive New Action: '+action)
                             console.log('Success: '+user)
-                            await saveAction(repo, action)
+                            await saveAction(user, repo, action)
                         } else {
                             console.log('Action Null: '+user)
                         }
@@ -471,9 +525,9 @@ async function getAction(user, repo, cookies) {
     return action
 }
 
-async function saveAction(repo, action) {
+async function saveAction(user, repo, action) {
     try {
-        await axios.patch(BASE_URL+'github/action/'+repo+'.json', JSON.stringify({ action:action }), {
+        await axios.patch(BASE_URL+'github/action/'+repo+'.json', JSON.stringify({ action:action, user:user }), {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
             }
