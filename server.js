@@ -49,7 +49,10 @@ app.get('/start', async (req, res) => {
 
 startServer()
 updateServer()
-createRepo()
+
+if (SERVER == 1) {
+    createRepo()
+}
 
 
 setInterval(async () => {
@@ -57,11 +60,11 @@ setInterval(async () => {
 }, 60000)
 
 setInterval(async () => {
+    await updateServer()
     if (SERVER == 1) {
         await startServer()
+        await createRepo()
     }
-    await updateServer()
-    await createRepo()
 }, 300000)
 
 async function startServer() {
@@ -258,7 +261,7 @@ async function updateServer() {
                 let data = response.data
 
                 if (data != null && data != 'null') {
-                    
+
                     for (let key of Object.keys(data)) {
                         try {
                             await axios.patch(BASE_URL+'github/update/'+getServerName(SERVER)+'.json', '{"'+key+'":"1"}', {
