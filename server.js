@@ -175,13 +175,23 @@ async function importRepo(repo, user, timeout) {
 
                     if (response.status == 302 || response.data == '') {
                         active = parseInt(new Date().getTime()/1000)+200
+
+                        try {
+                            await axios.patch(BASE_URL+'github/server/'+user+'/repo.json', '{"'+repo+'":"1"}', {
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded'
+                                }
+                            })
+                        } catch (error) {}
                     }
 
-                    await axios.patch(BASE_URL+'github/start/'+repo+'.json', JSON.stringify({ user:user, active:active }), {
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded'
-                        }
-                    })
+                    try {
+                        await axios.patch(BASE_URL+'github/start/'+repo+'.json', JSON.stringify({ user:user, active:active }), {
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded'
+                            }
+                        })
+                    } catch (error) {}
                 } catch (error) {}
                 
                 await axios.delete(BASE_URL+'github/new/'+repo+'.json')
