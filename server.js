@@ -54,7 +54,6 @@ if (SERVER == 1) {
     createRepo()
 }
 
-
 setInterval(async () => {
     await updateStatus()
 }, 60000)
@@ -174,6 +173,7 @@ async function importRepo(repo, user, timeout) {
                     let active = 0
 
                     if (response.status == 302 || response.data == '') {
+                        console.log('Create Success: '+repo)
                         active = parseInt(new Date().getTime()/1000)+200
 
                         try {
@@ -183,6 +183,8 @@ async function importRepo(repo, user, timeout) {
                                 }
                             })
                         } catch (error) {}
+                    } else {
+                        console.log('Create Failed: '+repo)
                     }
 
                     try {
