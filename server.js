@@ -90,68 +90,74 @@ async function createRepo() {
         let data = response.data
 
         if (data != null && data != 'null') {
+            let load = 0
+            let devide = 200000/Object.keys(data).length
+
             for (let [repo, user] of Object.entries(data)) {
-                try {
-                    response = await axios.get(BASE_URL+'github/server/'+user+'.json')
-                    data = response.data
-
-                    if(data != null && data != 'null') {
-                        
-                        let form = new FormData()
-                        form.append('vcs_url', 'https://github.com/'+user+'/'+user)
-                        form.append('owner', user)
-                        form.append('repository[name]', repo)
-                        form.append('repository[visibility]', 'public')
-                        form.append('source_username', '')
-                        form.append('source_access_token', '')
-
-                        response = await axios.post('https://github.com/new/import', form, {
-                            headers: {
-                                'accept': 'text/html',
-                                'accept-language': 'en-US,en;q=0.9',
-                                'content-type': form.getHeaders()['content-type'],
-                                'cookie': 'user_session='+data['cookies']+'; __Host-user_session_same_site='+data['cookies']+'; has_recent_activity=1; logged_in=yes; preferred_color_mode=dark;',
-                                'github-verified-fetch': 'true',
-                                'origin': 'https://github.com',
-                                'priority': 'u=1, i',
-                                'referer': 'https://github.com/new/import',
-                                'sec-ch-ua': '"Not)A;Brand";v="99", "Google Chrome";v="127", "Chromium";v="127"',
-                                'sec-ch-ua-mobile': '?0',
-                                'sec-ch-ua-platform': '"Windows"',
-                                'sec-fetch-dest': 'empty',
-                                'sec-fetch-mode': 'cors',
-                                'sec-fetch-site': 'same-origin',
-                                'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
-                                'x-requested-with': 'XMLHttpRequest'
-                            },
-                            maxRedirects: 0,
-                            validateStatus: null
-                        })
-                        
-                        try {
-                            let active = 0
-
-                            if (response.status == 302 || response.data == '') {
-                                active = parseInt(new Date().getTime()/1000)+200
-                            }
-
-                            await axios.patch(BASE_URL+'github/start/'+repo+'.json', JSON.stringify({ user:user, action:active }), {
-                                headers: {
-                                    'Content-Type': 'application/x-www-form-urlencoded'
-                                }
-                            })
-                        } catch (error) {
-                            console.log(error)
-                        }
-                        await axios.delete(BASE_URL+'github/new/'+repo+'.json')
-                    }
-                } catch (error) {
-                    console.log(error)
-                    
-                }
+                importRepo(repo, user, load*devide)
+                load++
             }
         }
     } catch (error) {}
+}
+
+async function importRepo(repo, user, timeout) {
+    setTimeout(async() => {
+        try {
+            let response = await axios.get(BASE_URL+'github/server/'+user+'.json')
+            let data = response.data
+
+            if(data != null && data != 'null') {
+                
+                let form = new FormData()
+                form.append('vcs_url', 'https://github.com/'+user+'/'+user)
+                form.append('owner', user)
+                form.append('repository[name]', repo)
+                form.append('repository[visibility]', 'public')
+                form.append('source_username', '')
+                form.append('source_access_token', '')
+
+                response = await axios.post('https://github.com/new/import', form, {
+                    headers: {
+                        'accept': 'text/html',
+                        'accept-language': 'en-US,en;q=0.9',
+                        'content-type': form.getHeaders()['content-type'],
+                        'cookie': 'user_session='+data['cookies']+'; __Host-user_session_same_site='+data['cookies']+'; has_recent_activity=1; logged_in=yes; preferred_color_mode=dark;',
+                        'github-verified-fetch': 'true',
+                        'origin': 'https://github.com',
+                        'priority': 'u=1, i',
+                        'referer': 'https://github.com/new/import',
+                        'sec-ch-ua': '"Not)A;Brand";v="99", "Google Chrome";v="127", "Chromium";v="127"',
+                        'sec-ch-ua-mobile': '?0',
+                        'sec-ch-ua-platform': '"Windows"',
+                        'sec-fetch-dest': 'empty',
+                        'sec-fetch-mode': 'cors',
+                        'sec-fetch-site': 'same-origin',
+                        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
+                        'x-requested-with': 'XMLHttpRequest'
+                    },
+                    maxRedirects: 0,
+                    validateStatus: null
+                })
+                
+                try {
+                    let active = 0
+
+                    if (response.status == 302 || response.data == '') {
+                        active = parseInt(new Date().getTime()/1000)+200
+                    }
+
+                    await axios.patch(BASE_URL+'github/start/'+repo+'.json', JSON.stringify({ user:user, action:active }), {
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        }
+                    })
+                } catch (error) {}
+                
+                await axios.delete(BASE_URL+'github/new/'+repo+'.json')
+            }
+        } catch (error) {}
+    }, timeout)
 }
 
 async function updateServer() {
@@ -175,7 +181,7 @@ async function updateServer() {
         
         let size = mActiveServer.length
 
-        console.log(size, 'Update: '+new Date().toString())
+        console.log('All: '+size+' Update: '+new Date().toString())
 
         if (size > 0) {
             let devide = 250000/size
@@ -220,32 +226,33 @@ async function updateServer() {
     }
 }
    
-async function updateWebsite(user, timeout) {
+async function updateWebsite(repo, timeout) {
     setTimeout(async() => {
         try {
-            let storageUrl = STORAGE+encodeURIComponent('server/'+user+'.json')
+            let storageUrl = STORAGE+encodeURIComponent('server/'+repo+'.json')
             let response = await axios.get(storageUrl)
             
             if (parseInt(new Date().getTime()/1000) > parseInt(response.data['contentType'].replace('active/', ''))+10) {
-                response = await axios.get(BASE_URL+'github/action/'+user+'.json')
+                response = await axios.get(BASE_URL+'github/action/'+repo+'.json')
                 
                 let data = response.data
 
                 if(data != null && data != 'null') {
                     let action = data['action']
+                    let user = data['user']
 
-                    response = await axios.get(BASE_URL+'github/server/'+data['user']+'.json')
+                    response = await axios.get(BASE_URL+'github/server/'+user+'.json')
                 
                     data = response.data
 
                     if(data != null && data != 'null') {
-                        let cookies = 'user_session='+data['cookies']+'; __Host-user_session_same_site='+data['cookies']+'; has_recent_activity=1; logged_in=yes; preferred_color_mode=dark; '
+                        let cookies = 'user_session='+data['cookies']+'; __Host-user_session_same_site='+data['cookies']+'; has_recent_activity=1; logged_in=yes; preferred_color_mode=dark;'
             
-                        let cancel = await activeAction(user, data['action'], storageUrl, cookies)
+                        let cancel = await activeAction(user, repo, action, storageUrl, cookies)
             
                         if (cancel) {
                             await delay(15000)
-                            await activeAction(user, data['action'], storageUrl, cookies)
+                            await activeAction(user, repo, data['action'], storageUrl, cookies)
                         }
                     } else {
                         console.log('Data Not Found')
@@ -260,11 +267,11 @@ async function updateWebsite(user, timeout) {
     }, timeout)
 }
 
-async function activeAction(user, action, storageUrl, cookies) {
+async function activeAction(user, repo, action, storageUrl, cookies) {
     let token = null
 
     try {
-        let response = await axios.get('https://github.com/'+user+'/'+user+'/actions/runs/'+action, { 
+        let response = await axios.get('https://github.com/'+user+'/'+repo+'/actions/runs/'+action, { 
             headers: getFrameHeader(cookies),
             maxRedirects: 0,
             validateStatus: null
@@ -274,7 +281,7 @@ async function activeAction(user, action, storageUrl, cookies) {
 
         if (body.includes('hx_dot-fill-pending-icon') && body.includes('class="d-inline-block"')) {
             try {
-                await axios.get('https://raw.githubusercontent.com/'+user+'/'+user+'/main/.github/workflows/main.yml')
+                await axios.get('https://raw.githubusercontent.com/'+user+'/'+repo+'/main/.github/workflows/main.yml')
             } catch (error) {
                 try {
                     if (error.response.data == '404: Not Found') {
@@ -327,13 +334,13 @@ async function activeAction(user, action, storageUrl, cookies) {
                     }
                 } else {
                     if (!body.includes('aria-label="currently running: "') && body.includes('Jump to attempt')) {
-                        await newAction(user, cookies)
-                        let action = await getAction(user, cookies)
+                        await newAction(user, repo, cookies)
+                        let action = await getAction(user, repo, cookies)
                         if (action) {
                             token = 'action'
                             console.log('Receive New Action: '+action)
                             console.log('Success: '+user)
-                            await saveAction(user, action)
+                            await saveAction(repo, action)
                         } else {
                             console.log('Action Null: '+user)
                         }
@@ -342,7 +349,7 @@ async function activeAction(user, action, storageUrl, cookies) {
             }
 
             if (token && token != 'action') {
-                let response = await axios.post('https://github.com/'+user+'/'+user+'/actions/runs/'+action+'/rerequest_check_suite',
+                let response = await axios.post('https://github.com/'+user+'/'+repo+'/actions/runs/'+action+'/rerequest_check_suite',
                     new URLSearchParams({
                         '_method': 'put',
                         'authenticity_token': token
@@ -378,7 +385,7 @@ async function activeAction(user, action, storageUrl, cookies) {
         console.log('Token Null: '+user)
 
         try {
-            await axios.get('https://raw.githubusercontent.com/'+user+'/'+user+'/main/.github/workflows/main.yml')
+            await axios.get('https://raw.githubusercontent.com/'+user+'/'+repo+'/main/.github/workflows/main.yml')
         } catch (error) {
             try {
                 if (error.response.data == '404: Not Found') {
@@ -392,11 +399,11 @@ async function activeAction(user, action, storageUrl, cookies) {
     return false
 }
 
-async function newAction(user, cookies) {
+async function newAction(user, repo, cookies) {
     let token = null
 
     try {
-        let response = await axios.get('https://github.com/'+user+'/'+user+'/actions/manual?workflow=.github%2Fworkflows%2Fmain.yml', { 
+        let response = await axios.get('https://github.com/'+user+'/'+repo+'/actions/manual?workflow=.github%2Fworkflows%2Fmain.yml', { 
             headers: getFrameHeader(cookies),
             maxRedirects: 0,
             validateStatus: null
@@ -414,7 +421,7 @@ async function newAction(user, cookies) {
         }
 
         if (token) {
-            await axios.post('https://github.com/'+user+'/'+user+'/actions/manual',
+            await axios.post('https://github.com/'+user+'/'+repo+'/actions/manual',
                 new URLSearchParams({
                     'authenticity_token': token,
                     'workflow': '.github/workflows/main.yml',
@@ -432,12 +439,12 @@ async function newAction(user, cookies) {
     } catch (error) {}
 }
 
-async function getAction(user, cookies) {
+async function getAction(user, repo, cookies) {
     let action = null
 
     for (let i = 0; i < 5; i++) {
         try {
-            let response = await axios.get('https://github.com/'+user+'/'+user+'/actions', { 
+            let response = await axios.get('https://github.com/'+user+'/'+repo+'/actions', { 
                 headers: getFrameHeader(cookies),
                 maxRedirects: 0,
                 validateStatus: null
@@ -464,9 +471,9 @@ async function getAction(user, cookies) {
     return action
 }
 
-async function saveAction(user, action) {
+async function saveAction(repo, action) {
     try {
-        await axios.patch(BASE_URL+'github/server/'+user+'.json', JSON.stringify({ action:action }), {
+        await axios.patch(BASE_URL+'github/action/'+repo+'.json', JSON.stringify({ action:action }), {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
             }
