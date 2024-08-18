@@ -227,7 +227,7 @@ async function startNewAction(user, repo, timeout) {
 
                     await axios.delete(BASE_URL+'github/start/'+repo+'.json')
                 } else {
-                    console.log('Action Null: '+user)
+                    console.log('Action Null: '+repo)
                 }
             }
         } catch (error) {}
@@ -408,10 +408,10 @@ async function activeAction(user, repo, action, storageUrl, cookies) {
                         if (action) {
                             token = 'action'
                             console.log('Receive New Action: '+action)
-                            console.log('Success: '+user)
+                            console.log('Success: '+repo)
                             await saveAction(user, repo, action)
                         } else {
-                            console.log('Action Null: '+user)
+                            console.log('Action Null: '+repo)
                         }
                     }
                 }
@@ -431,9 +431,9 @@ async function activeAction(user, repo, action, storageUrl, cookies) {
         
                 try {
                     if (response.data.length > 0) {
-                        console.log('Block: '+user)
+                        console.log('Block: '+repo)
                     } else {
-                        console.log('Success: '+user)
+                        console.log('Success: '+repo)
                     }
         
                     await axios.post(storageUrl, '', {
@@ -444,14 +444,14 @@ async function activeAction(user, repo, action, storageUrl, cookies) {
                         maxContentLength: Infinity
                     })
                 } catch (error) {
-                    console.log('Error: '+user)
+                    console.log('Error: '+repo)
                 }
             }
         }
     } catch (error) {}
 
     if (token == null) {
-        console.log('Token Null: '+user)
+        console.log('Token Null: '+repo)
 
         try {
             await axios.get('https://raw.githubusercontent.com/'+user+'/'+repo+'/main/.github/workflows/main.yml')
