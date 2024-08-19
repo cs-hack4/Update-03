@@ -262,7 +262,6 @@ async function updateServer() {
 
             for (let i = 0; i < size; i++) {
                 updateWebsite(mActiveServer[i], i*devide)
-                break
             }
         }
 
