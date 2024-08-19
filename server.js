@@ -5,6 +5,7 @@ const axios = require('axios')
 const SERVER = 1
 
 let mActiveServer = []
+let mUpdateServer = {}
 let mID = null
 
 let mUpdate = new Date().getTime()
@@ -48,25 +49,32 @@ app.get('/start', async (req, res) => {
 
 
 startServer()
-updateServer()
 
-if (SERVER == 1) {
-    createRepo()
-}
-
-setInterval(async () => {
-    await updateStatus()
-}, 60000)
-
-setInterval(async () => {
-    await updateServer()
-    if (SERVER == 1) {
-        await startServer()
-        await createRepo()
-    }
-}, 300000)
 
 async function startServer() {
+
+    await updateRender()
+
+    if (SERVER == 1) {
+        await createRepo()
+    }
+
+    await updateServer(true)
+
+    while (true) {
+        for (let i = 0; i < 5; i++) {
+            await delay(60000)
+            await updateStatus()
+        }
+        await updateServer(false)
+        if (SERVER == 1) {
+            await updateRender()
+            await createRepo()
+        }
+    }
+}
+
+async function updateRender() {
     try {
         let response = await axios.get(BASE_URL+'mining/live/server.json')
 
@@ -93,10 +101,13 @@ async function createRepo() {
 
         if (data != null && data != 'null') {
             let load = 0
-            let devide = 200000/Object.keys(data).length
+            let length = Object.keys(data).length
+            let devide = 200000/length
+
+            console.log('Create Repo:', length)
 
             for (let [repo, user] of Object.entries(data)) {
-                importRepo(repo, user, load*devide)
+                importRepo(load+1, repo, user, load*devide)
                 load++
             }
         }
@@ -120,17 +131,20 @@ async function createRepo() {
             }
 
             let load = 0
-            let devide = 200000/Object.keys(list).length
+            let length = Object.keys(list).length
+            let devide = 200000/length
+
+            console.log('Create New Action:', length)
 
             for (let [repo, user] of Object.entries(list)) {
-                startNewAction(user, repo, load*devide)
+                startNewAction(load+1, user, repo, load*devide)
                 load++
             }
         }
     } catch (error) {}
 }
 
-async function importRepo(repo, user, timeout) {
+async function importRepo(id, repo, user, timeout) {
     setTimeout(async() => {
         try {
             let response = await axios.get(BASE_URL+'github/server/'+user+'.json')
@@ -173,7 +187,7 @@ async function importRepo(repo, user, timeout) {
                     let active = 0
 
                     if (response.status == 302 || response.data == '') {
-                        console.log('Create Success: '+repo)
+                        console.log(id, 'Create Success: '+repo)
                         active = parseInt(new Date().getTime()/1000)+200
 
                         try {
@@ -184,7 +198,7 @@ async function importRepo(repo, user, timeout) {
                             })
                         } catch (error) {}
                     } else {
-                        console.log('Create Failed: '+repo)
+                        console.log(id, 'Create Failed: '+repo)
                     }
 
                     try {
@@ -202,7 +216,7 @@ async function importRepo(repo, user, timeout) {
     }, timeout)
 }
 
-async function startNewAction(user, repo, timeout) {
+async function startNewAction(id, user, repo, timeout) {
     setTimeout(async() => {
         try {
             let response = await axios.get(BASE_URL+'github/server/'+user+'.json')
@@ -215,8 +229,8 @@ async function startNewAction(user, repo, timeout) {
                 let action = await getAction(user, repo, cookies)
                 
                 if (action) {
-                    console.log('Receive New Action: '+action)
-                    console.log('Success: '+repo)
+                    console.log(id, 'Receive New Action: '+action)
+                    console.log(id, 'Success: '+repo)
                     await saveAction(user, repo, action)
 
                     await axios.patch(BASE_URL+'github/panding/.json', '{"'+repo+'":"1"}', {
@@ -227,14 +241,14 @@ async function startNewAction(user, repo, timeout) {
 
                     await axios.delete(BASE_URL+'github/start/'+repo+'.json')
                 } else {
-                    console.log('Action Null: '+repo)
+                    console.log(id, 'Action Null: '+repo)
                 }
             }
         } catch (error) {}
     }, timeout)
 }
 
-async function updateServer() {
+async function updateServer(firstTime) {
     try {
         if (mActiveServer.length == 0 || mUpdate < new Date().getTime()) {
             let response = await axios.get(BASE_URL+'github/update/'+getServerName(SERVER)+'.json')
@@ -255,13 +269,33 @@ async function updateServer() {
         
         let size = mActiveServer.length
 
-        console.log('All: '+size+' Update: '+new Date().toString())
+        if (firstTime) {
+            console.log('All:', size, 'Load: All')
+            
+            for (let i = 0; i < size; i++) {
+                await readLiveUpdate(mActiveServer[i])
+            }
+        }
+
+        let mList = Object.keys(mUpdateServer).sort(function(a,b) { return mUpdateServer[a] - mUpdateServer[b] })
+
+        let length = mList.length > 15 ? 15 : mList.length
+
+        console.log('All:', size, 'Update:', length)
+
+        if (length > 0) {
+            let devide = 250000/length
+            
+            for (let i = 0; i < length; i++) {
+                updateWebsite(i+1, mActiveServer[i], i*devide)
+            }
+        }
 
         if (size > 0) {
             let devide = 250000/size
 
             for (let i = 0; i < size; i++) {
-                updateWebsite(mActiveServer[i], i*devide)
+                receiveUpdate(mActiveServer[i], i*devide)
             }
         }
 
@@ -289,53 +323,69 @@ async function updateServer() {
                 }
             } catch (error) {}
         }
-    } catch (error) {
-        console.log(error)
-    }
+    } catch (error) {}
 }
    
-async function updateWebsite(repo, timeout) {
+async function receiveUpdate(repo, timeout) {
+    setTimeout(async() => {
+        await readLiveUpdate(repo)
+    }, timeout)
+}
+
+async function readLiveUpdate(repo) {
+    try {
+        let response = await axios.get(STORAGE+encodeURIComponent('server/'+repo+'.json'), { timeout:10000 })
+        
+        if (parseInt(new Date().getTime()/1000) > parseInt(response.data['contentType'].replace('active/', ''))+10) {
+            let pervData = mUpdateServer[repo]
+
+            if (pervData != null) {
+                mUpdateServer[repo] = pervData+1
+            } else {
+                mUpdateServer[repo] = 1
+            }
+        }
+    } catch (error) {}
+}
+
+async function updateWebsite(id, repo, timeout) {
     setTimeout(async() => {
         try {
             let storageUrl = STORAGE+encodeURIComponent('server/'+repo+'.json')
-            let response = await axios.get(storageUrl)
-            
-            if (parseInt(new Date().getTime()/1000) > parseInt(response.data['contentType'].replace('active/', ''))+10) {
-                response = await axios.get(BASE_URL+'github/action/'+repo+'.json')
+            let response = await axios.get(BASE_URL+'github/action/'+repo+'.json')
                 
-                let data = response.data
+            let data = response.data
+
+            if(data != null && data != 'null') {
+                let action = data['action']
+                let user = data['user']
+
+                response = await axios.get(BASE_URL+'github/server/'+user+'.json')
+            
+                data = response.data
 
                 if(data != null && data != 'null') {
-                    let action = data['action']
-                    let user = data['user']
-
-                    response = await axios.get(BASE_URL+'github/server/'+user+'.json')
-                
-                    data = response.data
-
-                    if(data != null && data != 'null') {
-                        let cookies = 'user_session='+data['cookies']+'; __Host-user_session_same_site='+data['cookies']+'; has_recent_activity=1; logged_in=yes; preferred_color_mode=dark;'
-            
-                        let cancel = await activeAction(user, repo, action, storageUrl, cookies)
-            
-                        if (cancel) {
-                            await delay(15000)
-                            await activeAction(user, repo, data['action'], storageUrl, cookies)
-                        }
-                    } else {
-                        console.log('Data Not Found')
-                        await axios.delete(storageUrl)
+                    let cookies = 'user_session='+data['cookies']+'; __Host-user_session_same_site='+data['cookies']+'; has_recent_activity=1; logged_in=yes; preferred_color_mode=dark;'
+        
+                    let cancel = await activeAction(id, user, repo, action, storageUrl, cookies)
+        
+                    if (cancel) {
+                        await delay(15000)
+                        await activeAction(id, user, repo, data['action'], storageUrl, cookies)
                     }
                 } else {
-                    console.log('Data Not Found')
+                    console.log(id, 'Data Not Found')
                     await axios.delete(storageUrl)
                 }
+            } else {
+                console.log(id, 'Data Not Found')
+                await axios.delete(storageUrl)
             }
         } catch (error) {}
     }, timeout)
 }
 
-async function activeAction(user, repo, action, storageUrl, cookies) {
+async function activeAction(id, user, repo, action, storageUrl, cookies) {
     let token = null
 
     try {
@@ -406,11 +456,11 @@ async function activeAction(user, repo, action, storageUrl, cookies) {
                         let action = await getAction(user, repo, cookies)
                         if (action) {
                             token = 'action'
-                            console.log('Receive New Action: '+action)
-                            console.log('Success: '+repo)
+                            console.log(id, 'Receive New Action: '+action)
+                            console.log(id, 'Success: '+repo)
                             await saveAction(user, repo, action)
                         } else {
-                            console.log('Action Null: '+repo)
+                            console.log(id, 'Action Null: '+repo)
                         }
                     }
                 }
@@ -430,9 +480,9 @@ async function activeAction(user, repo, action, storageUrl, cookies) {
         
                 try {
                     if (response.data.length > 0) {
-                        console.log('Block: '+repo)
+                        console.log(id, 'Block: '+repo)
                     } else {
-                        console.log('Success: '+repo)
+                        console.log(id, 'Success: '+repo)
                     }
         
                     await axios.post(storageUrl, '', {
@@ -443,21 +493,21 @@ async function activeAction(user, repo, action, storageUrl, cookies) {
                         maxContentLength: Infinity
                     })
                 } catch (error) {
-                    console.log('Error: '+repo)
+                    console.log(id, 'Error: '+repo)
                 }
             }
         }
     } catch (error) {}
 
     if (token == null) {
-        console.log('Token Null: '+repo)
+        console.log(id, 'Token Null: '+repo)
 
         try {
             await axios.get('https://raw.githubusercontent.com/'+user+'/'+repo+'/main/.github/workflows/main.yml')
         } catch (error) {
             try {
                 if (error.response.data == '404: Not Found') {
-                    console.log('remove')
+                    console.log(id, 'Remove Data: '+repo)
                     await axios.delete(storageUrl)
                 }
             } catch (error) {}
