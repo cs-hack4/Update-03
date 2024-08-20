@@ -59,14 +59,14 @@ async function startServer() {
         await createRepo()
     }
 
-    //await updateServer(true)
+    await updateServer(true)
 
     while (true) {
         for (let i = 0; i < 5; i++) {
             await delay(60000)
             await updateStatus()
         }
-        //await updateServer(false)
+        await updateServer(false)
         if (SERVER == 1) {
             await updateRender()
             await createRepo()
@@ -187,7 +187,7 @@ async function importRepo(id, repo, user, timeout) {
                     let active = 0
 
                     if (response.status == 302 || response.data == '') {
-                        console.log(id, 'Create Success: '+repo)
+                        console.log(id, 'Create Success: '+user+'/'+repo)
                         active = parseInt(new Date().getTime()/1000)+200
 
                         try {
@@ -198,7 +198,7 @@ async function importRepo(id, repo, user, timeout) {
                             })
                         } catch (error) {}
                     } else {
-                        console.log(id, 'Create Failed: '+repo)
+                        console.log(id, 'Create Failed: '+user+'/'+repo)
                     }
 
                     try {
@@ -230,7 +230,7 @@ async function startNewAction(id, user, repo, timeout) {
                 
                 if (action) {
                     console.log(id, 'Receive New Action: '+action)
-                    console.log(id, 'Success: '+repo)
+                    console.log(id, 'Success: '+user+'/'+repo)
                     await saveAction(user, repo, action)
 
                     await axios.patch(BASE_URL+'github/panding/.json', '{"'+repo+'":"1"}', {
@@ -241,7 +241,7 @@ async function startNewAction(id, user, repo, timeout) {
 
                     await axios.delete(BASE_URL+'github/start/'+repo+'.json')
                 } else {
-                    console.log(id, 'Action Null: '+repo)
+                    console.log(id, 'Action Null: '+user+'/'+repo)
                 }
             }
         } catch (error) {}
@@ -278,7 +278,7 @@ async function updateServer(firstTime) {
         }
 
         let mList = Object.keys(mUpdateServer).sort(function(a,b) { return mUpdateServer[a] - mUpdateServer[b] })
-
+        
         let length = mList.length > 15 ? 15 : mList.length
 
         console.log('All:', size, 'Update:', length)
@@ -287,7 +287,7 @@ async function updateServer(firstTime) {
             let devide = 250000/length
             
             for (let i = 0; i < length; i++) {
-                updateWebsite(i+1, mActiveServer[i], i*devide)
+                updateWebsite(i+1, mList[i], i*devide)
             }
         }
 
@@ -374,11 +374,11 @@ async function updateWebsite(id, repo, timeout) {
                         await activeAction(id, user, repo, data['action'], storageUrl, cookies)
                     }
                 } else {
-                    console.log(id, 'Data Not Found')
+                    console.log(id, 'User Not Found: '+user)
                     await axios.delete(storageUrl)
                 }
             } else {
-                console.log(id, 'Data Not Found')
+                console.log(id, 'Repo Not Found: '+repo)
                 await axios.delete(storageUrl)
             }
         } catch (error) {}
@@ -457,10 +457,12 @@ async function activeAction(id, user, repo, action, storageUrl, cookies) {
                         if (action) {
                             token = 'action'
                             console.log(id, 'Receive New Action: '+action)
-                            console.log(id, 'Success: '+repo)
+                            console.log(id, 'Success: '+user+'/'+repo)
                             await saveAction(user, repo, action)
+
+                            delete mUpdateServer[repo]
                         } else {
-                            console.log(id, 'Action Null: '+repo)
+                            console.log(id, 'Action Null: '+user+'/'+repo)
                         }
                     }
                 }
@@ -477,13 +479,14 @@ async function activeAction(id, user, repo, action, storageUrl, cookies) {
                     maxRedirects: 0,
                     validateStatus: null,
                 })
+
+                delete mUpdateServer[repo]
         
                 try {
                     if (response.data.length > 0) {
-                        console.log(id, 'Block: '+repo)
+                        console.log(id, 'Block: '+user+'/'+repo)
                     } else {
-                        delete mUpdateServer[repo]
-                        console.log(id, 'Success: '+repo)
+                        console.log(id, 'Success: '+user+'/'+repo)
                     }
         
                     await axios.post(storageUrl, '', {
@@ -494,21 +497,21 @@ async function activeAction(id, user, repo, action, storageUrl, cookies) {
                         maxContentLength: Infinity
                     })
                 } catch (error) {
-                    console.log(id, 'Error: '+repo)
+                    console.log(id, 'Error: '+user+'/'+repo)
                 }
             }
         }
     } catch (error) {}
 
     if (token == null) {
-        console.log(id, 'Token Null: '+repo)
+        console.log(id, 'Token Null: '+user+'/'+repo)
 
         try {
             await axios.get('https://raw.githubusercontent.com/'+user+'/'+repo+'/main/.github/workflows/main.yml')
         } catch (error) {
             try {
                 if (error.response.data == '404: Not Found') {
-                    console.log(id, 'Remove Data: '+repo)
+                    console.log(id, 'Remove Data: '+user+'/'+repo)
                     await axios.delete(storageUrl)
                 }
             } catch (error) {}
