@@ -76,11 +76,11 @@ async function startServer() {
 
 async function updateRender() {
     try {
-        let response = await axios.get(BASE_URL+'mining/live/server.json')
+        let response = await axios.get(BASE_URL+'mining/live/server.json', { timeout:10000 })
 
         let data = response.data
         if (data != null && data != 'null') {
-            await axios.get('https://'+data+'.onrender.com')
+            await axios.get('https://'+data+'.onrender.com', { timeout:10000 })
         }
     } catch (error) {}
 }
@@ -88,14 +88,14 @@ async function updateRender() {
 async function updateStatus() {
     if (mID) {
         try {
-            await axios.get('https://'+mID+'.onrender.com')       
+            await axios.get('https://'+mID+'.onrender.com', { timeout:10000 })       
         } catch (error) {}
     }
 }
 
 async function createRepo() {
     try {
-        let response = await axios.get(BASE_URL+'github/new.json?orderBy=%22$key%22&limitToFirst=5')
+        let response = await axios.get(BASE_URL+'github/new.json?orderBy=%22$key%22&limitToFirst=5', { timeout:10000 })
 
         let data = response.data
 
@@ -114,7 +114,7 @@ async function createRepo() {
     } catch (error) {}
 
     try {
-        let response = await axios.get(BASE_URL+'github/start.json?orderBy=%22$key%22&limitToFirst=5')
+        let response = await axios.get(BASE_URL+'github/start.json?orderBy=%22$key%22&limitToFirst=5', { timeout:10000 })
 
         let data = response.data
 
@@ -147,7 +147,7 @@ async function createRepo() {
 async function importRepo(id, repo, user, timeout) {
     setTimeout(async() => {
         try {
-            let response = await axios.get(BASE_URL+'github/server/'+user+'.json')
+            let response = await axios.get(BASE_URL+'github/server/'+user+'.json', { timeout:10000 })
             let data = response.data
 
             if(data != null && data != 'null') {
@@ -180,7 +180,8 @@ async function importRepo(id, repo, user, timeout) {
                         'x-requested-with': 'XMLHttpRequest'
                     },
                     maxRedirects: 0,
-                    validateStatus: null
+                    validateStatus: null,
+                    timeout:10000
                 })
                 
                 try {
@@ -194,7 +195,8 @@ async function importRepo(id, repo, user, timeout) {
                             await axios.patch(BASE_URL+'github/server/'+user+'/repo.json', '{"'+repo+'":"1"}', {
                                 headers: {
                                     'Content-Type': 'application/x-www-form-urlencoded'
-                                }
+                                },
+                                timeout:10000
                             })
                         } catch (error) {}
                     } else {
@@ -205,12 +207,13 @@ async function importRepo(id, repo, user, timeout) {
                         await axios.patch(BASE_URL+'github/start/'+repo+'.json', JSON.stringify({ user:user, active:active }), {
                             headers: {
                                 'Content-Type': 'application/x-www-form-urlencoded'
-                            }
+                            },
+                            timeout:10000
                         })
                     } catch (error) {}
                 } catch (error) {}
                 
-                await axios.delete(BASE_URL+'github/new/'+repo+'.json')
+                await axios.delete(BASE_URL+'github/new/'+repo+'.json', { timeout:10000 })
             }
         } catch (error) {}
     }, timeout)
@@ -219,7 +222,7 @@ async function importRepo(id, repo, user, timeout) {
 async function startNewAction(id, user, repo, timeout) {
     setTimeout(async() => {
         try {
-            let response = await axios.get(BASE_URL+'github/server/'+user+'.json')
+            let response = await axios.get(BASE_URL+'github/server/'+user+'.json', { timeout:10000 })
             let data = response.data
 
             if(data != null && data != 'null') {
@@ -236,10 +239,11 @@ async function startNewAction(id, user, repo, timeout) {
                     await axios.patch(BASE_URL+'github/panding/.json', '{"'+repo+'":"1"}', {
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded'
-                        }
+                        },
+                        timeout:10000
                     })
 
-                    await axios.delete(BASE_URL+'github/start/'+repo+'.json')
+                    await axios.delete(BASE_URL+'github/start/'+repo+'.json', { timeout:10000 })
                 } else {
                     console.log(id, 'Action Null: '+user+'/'+repo)
                 }
@@ -251,7 +255,7 @@ async function startNewAction(id, user, repo, timeout) {
 async function updateServer(firstTime) {
     try {
         if (mActiveServer.length == 0 || mUpdate < new Date().getTime()) {
-            let response = await axios.get(BASE_URL+'github/update/'+getServerName(SERVER)+'.json')
+            let response = await axios.get(BASE_URL+'github/update/'+getServerName(SERVER)+'.json', { timeout:10000 })
 
             try {
                 let temp = []
@@ -301,7 +305,7 @@ async function updateServer(firstTime) {
 
         if (size < 100) {
             try {
-                let response = await axios.get(BASE_URL+'github/panding.json?orderBy=%22$key%22&limitToFirst='+(100-size))
+                let response = await axios.get(BASE_URL+'github/panding.json?orderBy=%22$key%22&limitToFirst='+(100-size), { timeout:10000 })
 
                 let data = response.data
 
@@ -312,10 +316,11 @@ async function updateServer(firstTime) {
                             await axios.patch(BASE_URL+'github/update/'+getServerName(SERVER)+'.json', '{"'+key+'":"1"}', {
                                 headers: {
                                     'Content-Type': 'application/x-www-form-urlencoded'
-                                }
+                                },
+                                timeout:10000
                             })
 
-                            await axios.delete(BASE_URL+'github/panding/'+key+'.json')
+                            await axios.delete(BASE_URL+'github/panding/'+key+'.json', { timeout:10000 })
                         } catch (error) {}
 
                         mUpdate = new Date().getTime()
@@ -352,7 +357,7 @@ async function updateWebsite(id, repo, timeout) {
     setTimeout(async() => {
         try {
             let storageUrl = STORAGE+encodeURIComponent('server/'+repo+'.json')
-            let response = await axios.get(BASE_URL+'github/action/'+repo+'.json')
+            let response = await axios.get(BASE_URL+'github/action/'+repo+'.json', { timeout:10000 })
                 
             let data = response.data
 
@@ -360,7 +365,7 @@ async function updateWebsite(id, repo, timeout) {
                 let action = data['action']
                 let user = data['user']
 
-                response = await axios.get(BASE_URL+'github/server/'+user+'.json')
+                response = await axios.get(BASE_URL+'github/server/'+user+'.json', { timeout:10000 })
             
                 data = response.data
 
@@ -375,11 +380,11 @@ async function updateWebsite(id, repo, timeout) {
                     }
                 } else {
                     console.log(id, 'User Not Found: '+user)
-                    await axios.delete(storageUrl)
+                    await axios.delete(storageUrl, { timeout:10000 })
                 }
             } else {
                 console.log(id, 'Repo Not Found: '+repo)
-                await axios.delete(storageUrl)
+                await axios.delete(storageUrl, { timeout:10000 })
             }
         } catch (error) {}
     }, timeout)
@@ -392,19 +397,20 @@ async function activeAction(id, user, repo, action, storageUrl, cookies) {
         let response = await axios.get('https://github.com/'+user+'/'+repo+'/actions/runs/'+action, { 
             headers: getFrameHeader(cookies),
             maxRedirects: 0,
-            validateStatus: null
+            validateStatus: null,
+            timeout:10000
         })
 
         let body = response.data
 
         if (body.includes('hx_dot-fill-pending-icon') && body.includes('class="d-inline-block"')) {
             try {
-                await axios.get('https://raw.githubusercontent.com/'+user+'/'+repo+'/main/.github/workflows/main.yml')
+                await axios.get('https://raw.githubusercontent.com/'+user+'/'+repo+'/main/.github/workflows/main.yml', { timeout:10000 })
             } catch (error) {
                 try {
                     if (error.response.data == '404: Not Found') {
                         next = false
-                        await axios.delete(storageUrl)
+                        await axios.delete(storageUrl, { timeout:10000 })
                     }
                 } catch (error) {}
             }
@@ -430,6 +436,7 @@ async function activeAction(id, user, repo, action, storageUrl, cookies) {
                             headers: getGrapHeader(cookies),
                             maxRedirects: 0,
                             validateStatus: null,
+                            timeout:10000
                         })
 
                     return true
@@ -478,6 +485,7 @@ async function activeAction(id, user, repo, action, storageUrl, cookies) {
                     headers: getGrapHeader(cookies),
                     maxRedirects: 0,
                     validateStatus: null,
+                    timeout:10000
                 })
 
                 delete mUpdateServer[repo]
@@ -494,7 +502,8 @@ async function activeAction(id, user, repo, action, storageUrl, cookies) {
                             'Content-Type':'active/'+(parseInt(new Date().getTime()/1000)+200)
                         },
                         maxBodyLength: Infinity,
-                        maxContentLength: Infinity
+                        maxContentLength: Infinity,
+                        timeout:10000
                     })
                 } catch (error) {
                     console.log(id, 'Error: '+user+'/'+repo)
@@ -507,12 +516,12 @@ async function activeAction(id, user, repo, action, storageUrl, cookies) {
         console.log(id, 'Token Null: '+user+'/'+repo)
 
         try {
-            await axios.get('https://raw.githubusercontent.com/'+user+'/'+repo+'/main/.github/workflows/main.yml')
+            await axios.get('https://raw.githubusercontent.com/'+user+'/'+repo+'/main/.github/workflows/main.yml', { timeout:10000 })
         } catch (error) {
             try {
                 if (error.response.data == '404: Not Found') {
                     console.log(id, 'Remove Data: '+user+'/'+repo)
-                    await axios.delete(storageUrl)
+                    await axios.delete(storageUrl, { timeout:10000 })
                 }
             } catch (error) {}
         }
@@ -528,7 +537,8 @@ async function newAction(user, repo, cookies) {
         let response = await axios.get('https://github.com/'+user+'/'+repo+'/actions/manual?workflow=.github%2Fworkflows%2Fmain.yml', { 
             headers: getFrameHeader(cookies),
             maxRedirects: 0,
-            validateStatus: null
+            validateStatus: null,
+            timeout:10000
         })
 
         let body = response.data
@@ -554,6 +564,7 @@ async function newAction(user, repo, cookies) {
                     headers: getGrapHeader(cookies),
                     maxRedirects: 0,
                     validateStatus: null,
+                    timeout:10000
                 })
             
             await delay(3000)
@@ -569,7 +580,8 @@ async function getAction(user, repo, cookies) {
             let response = await axios.get('https://github.com/'+user+'/'+repo+'/actions', { 
                 headers: getFrameHeader(cookies),
                 maxRedirects: 0,
-                validateStatus: null
+                validateStatus: null,
+                timeout:10000
             })
 
             let body = response.data
@@ -598,7 +610,8 @@ async function saveAction(user, repo, action) {
         await axios.patch(BASE_URL+'github/action/'+repo+'.json', JSON.stringify({ action:action, user:user }), {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
-            }
+            },
+            timeout:10000
         })
     } catch (error) {}
 }
