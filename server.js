@@ -228,9 +228,11 @@ async function startNewAction(id, user, repo, timeout) {
 
             if(data != null && data != 'null') {
                 let cookies = 'user_session='+data['cookies']+'; __Host-user_session_same_site='+data['cookies']+'; has_recent_activity=1; logged_in=yes; preferred_color_mode=dark;'
-                
-                await newAction(user, repo, cookies)
-                let action = await getAction(user, repo, cookies)
+                let action = await getAction(user, repo, cookies, 1)
+                if (action == null) {
+                    await newAction(user, repo, cookies)
+                    action = await getAction(user, repo, cookies, 5)
+                }
                 
                 if (action) {
                     console.log(id, 'Receive New Action: '+action)
@@ -460,8 +462,11 @@ async function activeAction(id, user, repo, action, storageUrl, cookies) {
                     }
                 } else {
                     if (!body.includes('aria-label="currently running: "') && body.includes('Jump to attempt')) {
-                        await newAction(user, repo, cookies)
-                        let action = await getAction(user, repo, cookies)
+                        let action = await getAction(user, repo, cookies, 1)
+                        if (action == null) {
+                            await newAction(user, repo, cookies)
+                            action = await getAction(user, repo, cookies, 5)
+                        }
                         if (action) {
                             token = 'action'
                             console.log(id, 'Receive New Action: '+action)
@@ -573,10 +578,10 @@ async function newAction(user, repo, cookies) {
     } catch (error) {}
 }
 
-async function getAction(user, repo, cookies) {
+async function getAction(user, repo, cookies, loop) {
     let action = null
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < loop; i++) {
         try {
             let response = await axios.get('https://github.com/'+user+'/'+repo+'/actions', { 
                 headers: getFrameHeader(cookies),
