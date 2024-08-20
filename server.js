@@ -291,7 +291,7 @@ async function updateServer(firstTime) {
         console.log('All:', size, 'Update:', length)
 
         if (length > 0) {
-            let devide = 250000/length
+            let devide = 280000/length
             
             for (let i = 0; i < length; i++) {
                 updateWebsite(i+1, mList[i], i*devide)
@@ -308,7 +308,7 @@ async function updateServer(firstTime) {
 
         if (size < LIVE*10) {
             try {
-                let response = await axios.get(BASE_URL+'github/panding.json?orderBy=%22$key%22&limitToFirst='+(100-size), { timeout:10000 })
+                let response = await axios.get(BASE_URL+'github/panding.json?orderBy=%22$key%22&limitToFirst='+((LIVE*10)-size), { timeout:10000 })
 
                 let data = response.data
 
