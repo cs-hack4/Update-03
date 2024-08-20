@@ -3,6 +3,7 @@ const express = require('express')
 const axios = require('axios')
 
 const SERVER = 1
+const LIVE = 15
 
 let mActiveServer = []
 let mUpdateServer = {}
@@ -283,7 +284,7 @@ async function updateServer(firstTime) {
 
         let mList = Object.keys(mUpdateServer).sort(function(a,b) { return mUpdateServer[a] - mUpdateServer[b] })
         
-        let length = mList.length > 15 ? 15 : mList.length
+        let length = mList.length > LIVE ? LIVE : mList.length
 
         console.log('All:', size, 'Update:', length)
 
@@ -303,7 +304,7 @@ async function updateServer(firstTime) {
             }
         }
 
-        if (size < 100) {
+        if (size < LIVE*10) {
             try {
                 let response = await axios.get(BASE_URL+'github/panding.json?orderBy=%22$key%22&limitToFirst='+(100-size), { timeout:10000 })
 
