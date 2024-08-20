@@ -482,6 +482,7 @@ async function activeAction(id, user, repo, action, storageUrl, cookies) {
                     if (response.data.length > 0) {
                         console.log(id, 'Block: '+repo)
                     } else {
+                        delete mUpdateServer[repo]
                         console.log(id, 'Success: '+repo)
                     }
         
