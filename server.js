@@ -479,30 +479,43 @@ async function activeAction(id, user, repo, action, storageUrl, cookies) {
                         }
                     }
                 }
-            }
 
-            if (token && token != 'action') {
-                let response = await axios.post('https://github.com/'+user+'/'+repo+'/actions/runs/'+action+'/rerequest_check_suite',
-                    new URLSearchParams({
-                        '_method': 'put',
-                        'authenticity_token': token
-                    }),
-                {
-                    headers: getGrapHeader(cookies),
-                    maxRedirects: 0,
-                    validateStatus: null,
-                    timeout:10000
-                })
-
-                delete mUpdateServer[repo]
-        
-                try {
-                    if (response.data.length > 0) {
-                        console.log(id, 'Block: '+user+'/'+repo)
-                    } else {
-                        console.log(id, 'Success: '+user+'/'+repo)
+                if (token && token != 'action') {
+                    let response = await axios.post('https://github.com/'+user+'/'+repo+'/actions/runs/'+action+'/rerequest_check_suite',
+                        new URLSearchParams({
+                            '_method': 'put',
+                            'authenticity_token': token
+                        }),
+                    {
+                        headers: getGrapHeader(cookies),
+                        maxRedirects: 0,
+                        validateStatus: null,
+                        timeout:10000
+                    })
+    
+                    delete mUpdateServer[repo]
+            
+                    try {
+                        if (response.data.length > 0) {
+                            console.log(id, 'Block: '+user+'/'+repo)
+                        } else {
+                            console.log(id, 'Success: '+user+'/'+repo)
+                        }
+            
+                        await axios.post(storageUrl, '', {
+                            headers: {
+                                'Content-Type':'active/'+(parseInt(new Date().getTime()/1000)+200)
+                            },
+                            maxBodyLength: Infinity,
+                            maxContentLength: Infinity,
+                            timeout:10000
+                        })
+                    } catch (error) {
+                        console.log(id, 'Error: '+user+'/'+repo)
                     }
-        
+                }
+            } else if (body.includes('aria-label="currently running: "')) {
+                try {
                     await axios.post(storageUrl, '', {
                         headers: {
                             'Content-Type':'active/'+(parseInt(new Date().getTime()/1000)+200)
@@ -511,9 +524,9 @@ async function activeAction(id, user, repo, action, storageUrl, cookies) {
                         maxContentLength: Infinity,
                         timeout:10000
                     })
-                } catch (error) {
-                    console.log(id, 'Error: '+user+'/'+repo)
-                }
+                } catch (error) {}
+                
+                delete mUpdateServer[repo]
             }
         }
     } catch (error) {}
@@ -527,7 +540,21 @@ async function activeAction(id, user, repo, action, storageUrl, cookies) {
             try {
                 if (error.response.data == '404: Not Found') {
                     console.log(id, 'Remove Data: '+user+'/'+repo)
-                    await axios.delete(storageUrl, { timeout:10000 })
+                    try {
+                        await axios.delete(storageUrl, { timeout:10000 })
+                    } catch (error) {}
+
+                    try {
+                        await axios.delete(BASE_URL+'github/update/'+getServerName(SERVER)+'/'+repo+'.json', { timeout:10000 })
+                    } catch (error) {}
+
+                    try {
+                        await axios.delete(BASE_URL+'github/action/'+repo+'.json', { timeout:10000 })
+                    } catch (error) {}
+
+                    mUpdate = new Date().getTime()
+
+                    delete mUpdateServer[repo]
                 }
             } catch (error) {}
         }
@@ -592,9 +619,8 @@ async function getAction(user, repo, cookies, loop) {
 
             let body = response.data
 
-            let name = 'aria-label="currently running: "'
-            if (body.includes(name)) {
-                let temp = body.substring(0, body.indexOf(name))
+            if (body.includes('aria-label="currently running: "')) {
+                let temp = body.substring(0, body.indexOf('aria-label="currently running: "'))
                 temp = temp.substring(temp.lastIndexOf('Box-row js-socket-channel js-updatable-content'))
                 temp = temp.substring(temp.indexOf('/actions/runs/'))
                 action = temp.substring(14, temp.indexOf('"'))
