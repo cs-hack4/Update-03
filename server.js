@@ -3,7 +3,7 @@ const express = require('express')
 const axios = require('axios')
 
 const SERVER = 1
-const LIVE = 20
+const LIVE = 15
 
 let mActiveServer = []
 let mUpdateServer = {}
@@ -115,7 +115,7 @@ async function createRepo() {
     } catch (error) {}
 
     try {
-        let response = await axios.get(BASE_URL+'github/start.json?orderBy=%22$key%22&limitToFirst=5', { timeout:10000 })
+        let response = await axios.get(BASE_URL+'github/start.json?orderBy=%22active%22&startAt=1&limitToFirst=5', { timeout:10000 })
 
         let data = response.data
 
